@@ -12,6 +12,7 @@ import { defineConfig, devices } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './e2e',
+  // testDir: './e2e-oop',
   /* Maximum time one test can run for. */
   timeout: 30 * 1000,
   expect: {
@@ -40,7 +41,10 @@ export default defineConfig({
     trace: 'on-first-retry',
 
     /* Only on CI systems run the tests headless */
-    headless: !!process.env.CI,
+    headless: true,
+    launchOptions: {
+      slowMo: 1000, // 1 second delay between actions
+    },
   },
 
   /* Configure projects for major browsers */
