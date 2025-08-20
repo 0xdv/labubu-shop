@@ -1,6 +1,8 @@
-# frontend
+# Labubu Shop Demo
 
-This template should help get you started developing with Vue 3 in Vite.
+**Note: This is not an actual shop, but a demo learning project designed to teach students the basics of Playwright testing and Object-Oriented Programming (OOP) in TypeScript.**
+
+This Vue 3 application serves as a practice environment for learning automated testing with Playwright and implementing OOP principles in TypeScript. Students will learn how to structure test code using classes, encapsulation, and other OOP concepts while building comprehensive end-to-end tests.
 
 ## Recommended IDE Setup
 
