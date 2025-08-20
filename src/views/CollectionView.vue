@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import ProductCard from '../components/ProductCard.vue'
 
 const categories = ref([
-  { id: 'all', name: 'All Products', count: 24 },
-  { id: 'classic', name: 'Classic Series', count: 8 },
-  { id: 'limited', name: 'Limited Edition', count: 4 },
-  { id: 'new', name: 'New Arrivals', count: 6 },
-  { id: 'sale', name: 'On Sale', count: 6 }
+  { id: 'all', name: 'All Products', count: 0 },
+  { id: 'classic', name: 'Classic Series', count: 0 },
+  { id: 'limited', name: 'Limited Edition', count: 0 },
+  { id: 'new', name: 'New Arrivals', count: 0 },
+  { id: 'sale', name: 'On Sale', count: 0 }
 ])
 
 const sortOptions = ref([
@@ -21,6 +21,21 @@ const sortOptions = ref([
 const selectedCategory = ref('all')
 const selectedSort = ref('popular')
 const searchQuery = ref('')
+
+// Price range filters
+const priceFilters = ref({
+  under50: false,
+  from50to100: false,
+  from100to150: false,
+  over150: false
+})
+
+// Availability filters
+const availabilityFilters = ref({
+  inStock: false,
+  preorder: false,
+  sale: false
+})
 
 const allProducts = ref([
   {
@@ -120,6 +135,112 @@ const allProducts = ref([
     category: 'sale'
   }
 ])
+
+// Dynamic categories with counts
+const categoriesWithCounts = computed(() => {
+  const counts: Record<string, number> = {
+    all: allProducts.value.length,
+    classic: allProducts.value.filter(p => p.category === 'classic').length,
+    limited: allProducts.value.filter(p => p.category === 'limited').length,
+    new: allProducts.value.filter(p => p.isNew).length,
+    sale: allProducts.value.filter(p => p.originalPrice !== null).length
+  }
+
+  return categories.value.map(cat => ({
+    ...cat,
+    count: counts[cat.id] || 0
+  }))
+})
+
+// Filtered and sorted products
+const filteredProducts = computed(() => {
+  let filtered = allProducts.value
+
+  // Filter by search query
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    filtered = filtered.filter(product =>
+      product.name.toLowerCase().includes(query)
+    )
+  }
+
+  // Filter by category
+  if (selectedCategory.value !== 'all') {
+    if (selectedCategory.value === 'new') {
+      filtered = filtered.filter(product => product.isNew)
+    } else {
+      filtered = filtered.filter(product => product.category === selectedCategory.value)
+    }
+  }
+
+  // Filter by price range
+  const activePriceFilters = Object.entries(priceFilters.value).filter(([_, active]) => active)
+  if (activePriceFilters.length > 0) {
+    filtered = filtered.filter(product => {
+      const price = product.price
+      return activePriceFilters.some(([filter]) => {
+        switch (filter) {
+          case 'under50': return price < 50
+          case 'from50to100': return price >= 50 && price <= 100
+          case 'from100to150': return price > 100 && price <= 150
+          case 'over150': return price > 150
+          default: return false
+        }
+      })
+    })
+  }
+
+  // Filter by availability
+  if (availabilityFilters.value.inStock) {
+    filtered = filtered.filter(product => product.inStock)
+  }
+  if (availabilityFilters.value.sale) {
+    filtered = filtered.filter(product => product.originalPrice !== null)
+  }
+
+  // Sort products
+  const sorted = [...filtered].sort((a, b) => {
+    switch (selectedSort.value) {
+      case 'newest':
+        return b.isNew ? 1 : a.isNew ? -1 : 0
+      case 'price-low':
+        return a.price - b.price
+      case 'price-high':
+        return b.price - a.price
+      case 'rating':
+        return b.rating - a.rating
+      case 'popular':
+      default:
+        return b.reviews - a.reviews
+    }
+  })
+
+  return sorted
+})
+
+// Current category name
+const currentCategoryName = computed(() => {
+  const category = categoriesWithCounts.value.find(cat => cat.id === selectedCategory.value)
+  return category?.name || 'All Products'
+})
+
+// Clear all filters function
+const clearAllFilters = () => {
+  searchQuery.value = ''
+  selectedCategory.value = 'all'
+  selectedSort.value = 'popular'
+  priceFilters.value = {
+    under50: false,
+    from50to100: false,
+    from100to150: false,
+    over150: false
+  }
+  availabilityFilters.value = {
+    inStock: false,
+    preorder: false,
+    sale: false
+  }
+}
 </script>
 
 <template>
@@ -157,8 +278,8 @@ const allProducts = ref([
             <div class="mb-6">
               <h3 class="text-lg font-semibold text-gray-900 mb-4">Categories</h3>
               <div class="space-y-2">
-                <button v-for="category in categories" :key="category.id" @click="selectedCategory = category.id"
-                  :class="[
+                <button v-for="category in categoriesWithCounts" :key="category.id"
+                  @click="selectedCategory = category.id" :class="[
                     'w-full text-left px-4 py-2 rounded-lg transition-colors duration-200 flex justify-between items-center',
                     selectedCategory === category.id
                       ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white'
@@ -175,19 +296,23 @@ const allProducts = ref([
               <h3 class="text-lg font-semibold text-gray-900 mb-4">Price Range</h3>
               <div class="space-y-3">
                 <div class="flex items-center">
-                  <input type="checkbox" id="under50" class="mr-2 text-pink-600 focus:ring-pink-500">
+                  <input type="checkbox" id="under50" v-model="priceFilters.under50"
+                    class="mr-2 text-pink-600 focus:ring-pink-500">
                   <label for="under50" class="text-gray-700">Under $50</label>
                 </div>
                 <div class="flex items-center">
-                  <input type="checkbox" id="50to100" class="mr-2 text-pink-600 focus:ring-pink-500">
+                  <input type="checkbox" id="50to100" v-model="priceFilters.from50to100"
+                    class="mr-2 text-pink-600 focus:ring-pink-500">
                   <label for="50to100" class="text-gray-700">$50 - $100</label>
                 </div>
                 <div class="flex items-center">
-                  <input type="checkbox" id="100to150" class="mr-2 text-pink-600 focus:ring-pink-500">
+                  <input type="checkbox" id="100to150" v-model="priceFilters.from100to150"
+                    class="mr-2 text-pink-600 focus:ring-pink-500">
                   <label for="100to150" class="text-gray-700">$100 - $150</label>
                 </div>
                 <div class="flex items-center">
-                  <input type="checkbox" id="over150" class="mr-2 text-pink-600 focus:ring-pink-500">
+                  <input type="checkbox" id="over150" v-model="priceFilters.over150"
+                    class="mr-2 text-pink-600 focus:ring-pink-500">
                   <label for="over150" class="text-gray-700">Over $150</label>
                 </div>
               </div>
@@ -198,15 +323,18 @@ const allProducts = ref([
               <h3 class="text-lg font-semibold text-gray-900 mb-4">Availability</h3>
               <div class="space-y-3">
                 <div class="flex items-center">
-                  <input type="checkbox" id="instock" class="mr-2 text-pink-600 focus:ring-pink-500">
+                  <input type="checkbox" id="instock" v-model="availabilityFilters.inStock"
+                    class="mr-2 text-pink-600 focus:ring-pink-500">
                   <label for="instock" class="text-gray-700">In Stock</label>
                 </div>
                 <div class="flex items-center">
-                  <input type="checkbox" id="preorder" class="mr-2 text-pink-600 focus:ring-pink-500">
+                  <input type="checkbox" id="preorder" v-model="availabilityFilters.preorder"
+                    class="mr-2 text-pink-600 focus:ring-pink-500">
                   <label for="preorder" class="text-gray-700">Pre-order</label>
                 </div>
                 <div class="flex items-center">
-                  <input type="checkbox" id="sale" class="mr-2 text-pink-600 focus:ring-pink-500">
+                  <input type="checkbox" id="sale" v-model="availabilityFilters.sale"
+                    class="mr-2 text-pink-600 focus:ring-pink-500">
                   <label for="sale" class="text-gray-700">On Sale</label>
                 </div>
               </div>
@@ -219,8 +347,8 @@ const allProducts = ref([
           <!-- Sort and Results -->
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
             <div>
-              <h2 class="text-2xl font-bold text-gray-900">All Products</h2>
-              <p class="text-gray-600">Showing {{ allProducts.length }} results</p>
+              <h2 class="text-2xl font-bold text-gray-900">{{ currentCategoryName }}</h2>
+              <p class="text-gray-600">Showing {{ filteredProducts.length }} results</p>
             </div>
             <select v-model="selectedSort"
               class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent">
@@ -231,8 +359,25 @@ const allProducts = ref([
           </div>
 
           <!-- Products Grid -->
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-            <ProductCard v-for="product in allProducts" :key="product.id" :product="product" />
+          <div v-if="filteredProducts.length > 0" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <ProductCard v-for="product in filteredProducts" :key="product.id" :product="product" />
+          </div>
+
+          <!-- No Results -->
+          <div v-else class="text-center py-12">
+            <div class="text-gray-400 mb-4">
+              <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m13-8a2 2 0 00-2-2H7a2 2 0 00-2 2v6.5">
+                </path>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">No products found</h3>
+            <p class="text-gray-600 mb-4">Try adjusting your filters or search terms</p>
+            <button @click="clearAllFilters"
+              class="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-pink-600 hover:to-purple-700 transition-all duration-200">
+              Clear All Filters
+            </button>
           </div>
 
           <!-- Load More -->
