@@ -52,16 +52,8 @@ test.describe('Home Page', () => {
   test('should handle product interactions', async ({ page }) => {
     await page.waitForLoadState('networkidle')
 
-    // Find product cards or buttons
-    const productCard = page
-      .locator('.product-card, [data-testid="product-card"]')
-      .first()
-      .or(
-        page
-          .locator('div')
-          .filter({ hasText: /Classic Labubu/i })
-          .first(),
-      )
+    // Find product cards or buttons - be more specific to avoid strict mode violation
+    const productCard = page.locator('.product-card').first()
 
     if (await productCard.isVisible()) {
       // Try to find and click an "Add to Cart" or similar button

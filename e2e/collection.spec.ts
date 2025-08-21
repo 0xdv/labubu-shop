@@ -172,10 +172,8 @@ test.describe('Collection Page', () => {
         await expect(productName).toBeVisible()
       }
 
-      // Check for price
-      const price = firstProduct
-        .locator('.price')
-        .or(firstProduct.locator('span').filter({ hasText: /\$\d+/ }))
+      // Check for price - target the main price specifically
+      const price = firstProduct.locator('span.text-2xl.font-bold.text-gray-900').first()
       await expect(price).toBeVisible()
     }
   })

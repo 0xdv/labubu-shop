@@ -113,9 +113,7 @@ export class CollectionPage extends BasePage {
   }
 
   get firstProductPrice(): Locator {
-    return this.firstProduct
-      .locator('.price')
-      .or(this.firstProduct.locator('span').filter({ hasText: /\$\d+/ }))
+    return this.firstProduct.locator('span.text-2xl.font-bold.text-gray-900').first()
   }
 
   async clickClearFilters(): Promise<void> {

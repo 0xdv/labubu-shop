@@ -43,7 +43,7 @@ export default defineConfig({
     /* Only on CI systems run the tests headless */
     headless: true,
     launchOptions: {
-      slowMo: 1000, // 1 second delay between actions
+      // slowMo: 1000, // 1 second delay between actions
     },
   },
 
